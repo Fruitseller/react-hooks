@@ -6,9 +6,50 @@ import * as React from 'react'
 // fetchPokemon: the function we call to get the pokemon info
 // PokemonInfoFallback: the thing we show while we're loading the pokemon info
 // PokemonDataView: the stuff we use to display the pokemon info
-import {PokemonForm} from '../pokemon'
+import {fetchPokemon, PokemonDataView, PokemonForm, PokemonInfoFallback} from '../pokemon'
+
+
+class PokemonErrorBoundary extends React.Component {
+  state = {
+    hasError: false,
+    errorMessage: '',
+  }
+
+  static getDerivedStateFromError(error) {
+    return {hasError: true, errorMessage: error.message}
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.log(`error: ${error} `)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div role='alert'>
+        There was an error: <pre style={{whiteSpace: 'normal'}}>{this.state.errorMessage}</pre>
+      </div>
+    }
+    return this.props.children
+  }
+}
 
 function PokemonInfo({pokemonName}) {
+  const [pokemon, setPokemon] = React.useState()
+  const [status, setStatus] = React.useState('idle')
+  const [error, setError] = React.useState()
+
+  React.useEffect(() => {
+    if (pokemonName) {
+      setStatus('pending')
+      fetchPokemon(pokemonName).then(result => {
+        setPokemon(result)
+        setStatus('resolved')
+      }).catch(error => {
+        setError(error)
+        setStatus('rejected')
+      })
+    }
+  }, [pokemonName])
   // 🐨 Have state for the pokemon (null)
   // 🐨 use React.useEffect where the callback should be called whenever the
   // pokemon name changes.
@@ -24,8 +65,23 @@ function PokemonInfo({pokemonName}) {
   //   2. pokemonName but no pokemon: <PokemonInfoFallback name={pokemonName} />
   //   3. pokemon: <PokemonDataView pokemon={pokemon} />
 
-  // 💣 remove this
-  return 'TODO'
+  switch (status) {
+    case 'idle': {
+      return 'Submit a pokemon'
+    }
+    case 'pending': {
+      return <PokemonInfoFallback name={pokemonName} />
+    }
+    case 'resolved': {
+      return <PokemonDataView pokemon={pokemon} />
+    }
+    case 'rejected': {
+      throw error
+    }
+    default: {
+      return 'Submit a pokemon'
+    }
+  }
 }
 
 function App() {
@@ -36,11 +92,13 @@ function App() {
   }
 
   return (
-    <div className="pokemon-info-app">
+    <div className='pokemon-info-app'>
       <PokemonForm pokemonName={pokemonName} onSubmit={handleSubmit} />
       <hr />
-      <div className="pokemon-info">
-        <PokemonInfo pokemonName={pokemonName} />
+      <div className='pokemon-info'>
+        <PokemonErrorBoundary>
+          <PokemonInfo pokemonName={pokemonName} />
+        </PokemonErrorBoundary>
       </div>
     </div>
   )
